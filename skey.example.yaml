@@ -37,7 +37,7 @@ exe:
 jar:
   enabled: true
   entries:
-    - path: java/app.jar
+    - path: java/product.jar
       feature: RUN_JAR
       mode: temp_jar_subprocess
       java_runtime: bundled_or_system

@@ -51,13 +51,13 @@ dist\skey-studio.exe
 命令行示例：
 
 ```powershell
-.\dist\skey-protect.exe wrap-file --input "C:\Users\99700\Downloads\app.jar" --out "C:\Users\99700\Downloads\app-p"
+.\dist\skey-protect.exe wrap-file --input "<待加密单文件路径>" --out "<受保护输出目录>"
 ```
 
 运行受保护 JAR：
 
 ```powershell
-java -jar "C:\Users\99700\Downloads\app-p\app.jar"
+java -jar "<受保护输出目录>\<原始文件名>.jar"
 ```
 
 ## 命令行工具
@@ -155,3 +155,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-release-tools.ps1 -Vend
 - `allow_unsafe_dev_signing_key` 只适合本地测试，正式交付前应替换为生产签名密钥。
 - `dist/`、`build/`、`.venv/`、数据库文件和二进制发行产物默认不会上传到 Git。
 - 正式商用前建议为客户授权增加预绑定机器码或授权服务器审批流程。
+
+## 许可证
+
+本项目使用 [MIT License](LICENSE) 开源。

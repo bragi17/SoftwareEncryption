@@ -54,13 +54,13 @@ In Studio, select a single file as the source path on the Build page. The config
 CLI example:
 
 ```powershell
-.\dist\skey-protect.exe wrap-file --input "C:\Users\99700\Downloads\app.jar" --out "C:\Users\99700\Downloads\app-p"
+.\dist\skey-protect.exe wrap-file --input "<ARTIFACT_FILE>" --out "<PROTECTED_OUTPUT_DIR>"
 ```
 
 Run the protected JAR:
 
 ```powershell
-java -jar "C:\Users\99700\Downloads\app-p\app.jar"
+java -jar "<PROTECTED_OUTPUT_DIR>\<ORIGINAL_FILE_NAME>.jar"
 ```
 
 ## CLI Usage
@@ -162,4 +162,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-release-tools.ps1 -Vend
 
 ## License
 
-No open-source license has been declared yet. Add a `LICENSE` file before allowing third-party reuse or redistribution.
+This project is licensed under the [MIT License](LICENSE).

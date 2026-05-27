@@ -225,7 +225,7 @@ CONCEPT_TERMS: tuple[HelpArticle, ...] = (
             why="The runtime reads it from the release root, unwraps the package key, and binds it to the first machine that runs the software.",
             who="Operators send it with the customer release; support checks it when a customer reports license missing.",
             safe="Only for the intended customer. After first run it is bound to that machine and should not be reused elsewhere.",
-            example="Place skey.key next to the protected app.jar or model_server.py in the release root.",
+            example="Place skey.key next to the protected product launcher or model_server.py in the release root.",
         ),
     ),
     _article(
@@ -316,7 +316,7 @@ TASK_GUIDES: tuple[HelpArticle, ...] = (
         "\n".join(
             (
                 "Use this when a project stores Python files under many folders, for example "
-                "C:/Users/99700/Downloads/smt-model-api-service-dev-wtl.",
+                "C:/path/to/python-project.",
                 "Set the product root to the top folder, not to an inner folder such as core/ or utils/.",
                 "On the Project page, scan the folder first, then save the generated skey.yaml config file in the source folder. The default output is a sibling folder ending in -p.",
                 "Protected scope should be **/*.py so every nested Python file is encrypted; keep the default exclusions for .venv, venv, tests, and __pycache__.",
@@ -356,10 +356,10 @@ TASK_GUIDES: tuple[HelpArticle, ...] = (
         "\n".join(
             (
                 "Use this when the product is already compiled and there is no visible source code to encrypt.",
-                "On the Build page, put the file path in Project root, for example C:/Users/99700/Downloads/app.jar.",
+                "On the Build page, put the file path in Project root, for example C:/path/to/product.jar.",
                 "Leave Config file empty. Studio will infer the single-file shell settings from the file extension.",
-                "Release output defaults to a sibling folder ending in -p, for example app-p.",
-                "The protected output contains a same-name launcher, such as app.jar, plus .secure runtime files and skey.key. Do not run or ship the original plaintext file.",
+                "Release output defaults to a sibling folder ending in -p, for example product-p.",
+                "The protected output contains a same-name launcher, such as product.jar, plus .secure runtime files and skey.key. Do not run or ship the original plaintext file.",
                 "Place skey.key in the protected output root before first run. The first run binds it to that machine; later runs check both the key file and machine code.",
             ),
         ),
@@ -626,7 +626,7 @@ FIELD_HELP: dict[str, FieldHelp] = {
     "jar_entries": _field(
         "JAR files that should launch through the protected Java loader.",
         "optional",
-        "build/app.jar",
+        "build/product.jar",
         "src/Main.java",
         "The protected Java application cannot be packaged.",
     ),
@@ -874,7 +874,7 @@ ZH_CONCEPT_TERMS: tuple[HelpArticle, ...] = (
             why="运行时会从发行包根目录自动读取它，解开软件包密钥，并在第一次运行时绑定当前机器码。",
             who="操作员随客户发行包一起发送；客户提示缺少授权时，支持人员优先检查它是否在根目录。",
             safe="只能给目标客户使用。首次运行后会绑定到该机器，不应复制给其他机器复用。",
-            example="把 skey.key 放在受保护的 app.jar 或 model_server.py 所在的发行包根目录。",
+            example="把 skey.key 放在受保护启动文件或 model_server.py 所在的发行包根目录。",
         ),
     ),
     _article(
@@ -960,7 +960,7 @@ ZH_TASK_GUIDES: tuple[HelpArticle, ...] = (
         "加密多级子文件夹中的 Python 文件",
         "\n".join(
             (
-                "适用场景：项目里的 Python 文件分散在多级目录中，例如 C:/Users/99700/Downloads/smt-model-api-service-dev-wtl。",
+                "适用场景：项目里的 Python 文件分散在多级目录中，例如 C:/path/to/python-project。",
                 "第 1 步：产品根目录选择最外层项目文件夹，不要选择 core/、utils/ 这类内部子目录。",
                 "第 2 步：在项目页先扫描项目，然后保存自动生成的 skey.yaml 配置文件。默认输出目录是源项目旁边的 -p 文件夹。",
                 "第 3 步：加密范围保持 **/*.py，这会把所有子文件夹里的 Python 文件都纳入加密；排除目录默认保留 .venv、venv、tests、__pycache__。",
@@ -995,10 +995,10 @@ ZH_TASK_GUIDES: tuple[HelpArticle, ...] = (
         "\n".join(
             (
                 "适用场景：产品已经编译完成，没有需要逐个加密的源码文件。",
-                "在构建页把文件路径填到项目根目录，例如 C:/Users/99700/Downloads/app.jar。",
+                "在构建页把文件路径填到项目根目录，例如 C:/path/to/product.jar。",
                 "配置文件可以留空，软件会根据文件扩展名自动选择单文件套壳方式。",
-                "发行包输出默认是旁边的 -p 文件夹，例如 app-p。",
-                "输出目录中会有同名启动文件，例如 app.jar、.secure 运行时文件以及 skey.key。不要运行或交付原始明文文件。",
+                "发行包输出默认是旁边的 -p 文件夹，例如 product-p。",
+                "输出目录中会有同名启动文件，例如 product.jar、.secure 运行时文件以及 skey.key。不要运行或交付原始明文文件。",
                 "首次运行前确认 skey.key 位于受保护输出根目录。第一次运行会绑定机器码，后续运行会同时校验密钥文件和机器码。",
             ),
         ),
@@ -1082,7 +1082,7 @@ ZH_FIELD_HELP: dict[str, FieldHelp] = {
     "admin_wrap_key_b64": _field("管理员导出秘密时使用的 Base64 32 字节包裹密钥。", "必填", "YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODk", "password123", "管理员导出内容无法安全解包。"),
     "python_entries": _field("需要通过受保护运行时启动的 Python 文件或模块。", "可选", "app/main.py", "整个 virtualenv 文件夹", "发行包会过大，或从错误文件启动。"),
     "exe_entries": _field("需要包装启动的 Windows 可执行文件。", "可选", "bin/report.exe", "report.exe 快捷方式", "构建器找不到要保护的可执行文件。"),
-    "jar_entries": _field("需要通过受保护 Java 加载器启动的 JAR 文件。", "可选", "build/app.jar", "src/Main.java", "Java 应用无法正确打包。"),
+    "jar_entries": _field("需要通过受保护 Java 加载器启动的 JAR 文件。", "可选", "build/product.jar", "src/Main.java", "Java 应用无法正确打包。"),
     "resource_entries": _field("必须加密并随发行包交付的数据文件。", "可选", "assets/model.dat", "C:/Users/Alice/Desktop/model.dat", "构建会绑定到一台机器，或遗漏必要文件。"),
     "feature_codes": _field("用于开启授权功能的短功能名。", "可选", "reports,export", "all features forever", "授权无法稳定开启或关闭功能。"),
     "lease_hours": _field("在线批准在续租前保持有效的小时数。", "可选", "24", "0", "运行时会过于频繁续租，或拒绝启动。"),

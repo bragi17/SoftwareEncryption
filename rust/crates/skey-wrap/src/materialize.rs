@@ -555,7 +555,7 @@ mod tests {
         let jar = materialize_blob(
             &session,
             MaterializedBlobKind::Jar,
-            "java/app.jar",
+            "java/product.jar",
             b"jar-bytes",
         )
         .unwrap();
