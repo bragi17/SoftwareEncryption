@@ -1,0 +1,11 @@
+[package]
+name = "skey-exe-shell"
+version = "0.1.0"
+edition.workspace = true
+
+[[bin]]
+name = "skey-exe-shell"
+path = "src/main.rs"
+
+[dependencies]
+skey-wrap = { path = "../skey-wrap" }

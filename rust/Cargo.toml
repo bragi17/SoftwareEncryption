@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/skey-crypto",
+    "crates/skey-core",
+    "crates/skey-ffi",
+    "crates/skey-wrap",
+    "crates/skey-jni",
+    "crates/skey-exe-shell",
+]
+
+[workspace.package]
+edition = "2021"

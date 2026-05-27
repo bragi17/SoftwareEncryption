@@ -1,0 +1,63 @@
+product:
+  id: prod_x
+  name: Product X
+  version: 1.2.0
+server:
+  activation_url: http://127.0.0.1:8000/v1
+  public_key_id: vendor_sign_2026_01
+protection:
+  package_file: .secure/payload.skp
+  crypto:
+    aead: AES-256-GCM
+    kdf: HKDF-SHA256
+    signature: Ed25519
+python:
+  enabled: true
+  entries:
+    - path: main.py
+      feature: RUN_MAIN
+    - path: scripts/worker.py
+      feature: RUN_WORKER
+  modules:
+    include:
+      - pkg/**/*.py
+      - scripts/**/*.py
+    exclude:
+      - tests/**
+  hidden_imports:
+    - pkg.plugin
+exe:
+  enabled: true
+  entries:
+    - path: tools/helper.exe
+      feature: RUN_HELPER
+      materialize: private_temp
+      include_deps:
+        - tools/*.dll
+jar:
+  enabled: true
+  entries:
+    - path: java/app.jar
+      feature: RUN_JAR
+      mode: temp_jar_subprocess
+      java_runtime: bundled_or_system
+resources:
+  entries:
+    - path: data/model.dat
+      feature: DATA_MODEL
+      mode: materialize_on_session
+    - path: data/license_template.dat
+      feature: DATA_TEMPLATE
+      mode: stream_api
+license:
+  default_features:
+    - RUN_MAIN
+    - RUN_WORKER
+    - RUN_HELPER
+    - RUN_JAR
+  machine_binding:
+    pass_score: 70
+    review_score: 50
+  time:
+    lease_hours: 720
+    offline_grace_hours: 168

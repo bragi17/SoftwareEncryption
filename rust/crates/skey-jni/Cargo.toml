@@ -1,0 +1,13 @@
+[package]
+name = "skey-jni"
+version = "0.1.0"
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[dependencies]
+jni = "0.21"
+serde_json = "1"
+skey-core = { path = "../skey-core" }
