@@ -47,6 +47,7 @@ from skeyprotect.envelope_builder import (
 )
 from skeyprotect.manifest import canonical_json_bytes
 from skeyprotect.release_builder import build_release
+from skeyprotect.runtime_targets import inspect_runtime_targets
 from skeystudio.config_wizard import ConfigWizardDraft, config_dict_from_draft
 from skeystudio.state import OperationResult
 
@@ -214,6 +215,7 @@ class ProtectionService:
         release_path: Path,
         emit_admin_key_record: bool = False,
         admin_wrap_key_file: Path | None = None,
+        require_cross_platform_runtime: bool = False,
     ) -> OperationResult:
         admin_wrap_key: bytes | None = None
         if emit_admin_key_record:
@@ -366,18 +368,35 @@ class ProtectionService:
                 },
             )
 
+        try:
+            runtime_report = inspect_runtime_targets(product_root)
+        except (OSError, ValueError, TypeError, JSONDecodeError) as exc:
+            return OperationResult.fail(
+                f"Runtime target inspection failed: {exc}",
+                code="runtime_target_inspection_failed",
+                detail={"product_root": str(product_root)},
+            )
+
         detail: dict[str, object] = {
             "product_root": str(product_root),
             "product_id": payload_info["product_id"],
             "package_id": payload_info["package_id"],
             "unsafe_signing": unsafe_signing,
             "customer_key": str(customer_key_path),
+            "runtime_targets": runtime_report.as_detail(),
         }
         if effective_config_path is not None:
             detail["config_path"] = str(effective_config_path)
         if emit_admin_key_record:
             detail["admin_key_record"] = "written"
-        return OperationResult.ok("Release built", detail=detail)
+        if require_cross_platform_runtime and not runtime_report.windows_linux_ready:
+            return OperationResult.fail(
+                "Release built, but Windows + Linux runtime is incomplete: "
+                f"{runtime_report.summary()}",
+                code="runtime_targets_missing",
+                detail=detail,
+            )
+        return OperationResult.ok(f"Release built; {runtime_report.summary()}", detail=detail)
 
     @staticmethod
     def verify_runtime(product_root: Path) -> OperationResult:

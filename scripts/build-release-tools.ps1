@@ -191,6 +191,34 @@ function Copy-RequiredFile {
     Copy-Item -Force -LiteralPath $Source -Destination $Destination
 }
 
+function Copy-OptionalFile {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+
+    if (-not (Test-Path $Source)) {
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path $Destination) | Out-Null
+    Copy-Item -Force -LiteralPath $Source -Destination $Destination
+}
+
+function Copy-FirstOptionalFile {
+    param(
+        [string[]]$Sources,
+        [string]$Destination
+    )
+
+    foreach ($source in $Sources) {
+        if (Test-Path $source) {
+            Copy-OptionalFile $source $Destination
+            return
+        }
+    }
+}
+
 function Publish-ToolArtifacts {
     Write-Step "publishing protector tool artifacts"
     New-Item -ItemType Directory -Force -Path $DistRoot | Out-Null
@@ -206,6 +234,24 @@ function Publish-ToolArtifacts {
     Copy-RequiredFile `
         (Join-Path $RepoRoot "java\skey-loader\build\libs\skey-loader.jar") `
         (Join-Path $DistRoot "skey-loader.jar")
+    Copy-FirstOptionalFile @(
+        (Join-Path $RepoRoot "rust\target\release\libskey_ffi.so"),
+        (Join-Path $RepoRoot "rust\target\x86_64-unknown-linux-gnu\release\libskey_ffi.so")
+    ) (Join-Path $DistRoot "libskey_ffi.so")
+    Copy-FirstOptionalFile @(
+        (Join-Path $RepoRoot "rust\target\release\libskey_jni.so"),
+        (Join-Path $RepoRoot "rust\target\x86_64-unknown-linux-gnu\release\libskey_jni.so")
+    ) (Join-Path $DistRoot "libskey_jni.so")
+    Copy-FirstOptionalFile @(
+        (Join-Path $RepoRoot "rust\target\release\libskey_ffi.dylib"),
+        (Join-Path $RepoRoot "rust\target\x86_64-apple-darwin\release\libskey_ffi.dylib"),
+        (Join-Path $RepoRoot "rust\target\aarch64-apple-darwin\release\libskey_ffi.dylib")
+    ) (Join-Path $DistRoot "libskey_ffi.dylib")
+    Copy-FirstOptionalFile @(
+        (Join-Path $RepoRoot "rust\target\release\libskey_jni.dylib"),
+        (Join-Path $RepoRoot "rust\target\x86_64-apple-darwin\release\libskey_jni.dylib"),
+        (Join-Path $RepoRoot "rust\target\aarch64-apple-darwin\release\libskey_jni.dylib")
+    ) (Join-Path $DistRoot "libskey_jni.dylib")
     if ($script:RuntimePinSha256) {
         Set-Content `
             -Path (Join-Path $DistRoot "skey-runtime-pin.sha256") `

@@ -54,11 +54,20 @@ dist\skey-studio.exe
 .\dist\skey-protect.exe wrap-file --input "<待加密单文件路径>" --out "<受保护输出目录>"
 ```
 
+如果发行包必须同时包含 Windows DLL 和 Linux SO，请加上
+`--require-windows-linux-runtime`。缺少任一平台必要文件时，命令会失败并提示缺失文件。
+
 运行受保护 JAR：
 
 ```powershell
 java -jar "<受保护输出目录>\<原始文件名>.jar"
 ```
+
+Docker 部署时，把受保护启动文件、`.secure` 文件夹和 `skey.key` 一起复制到
+backend 容器挂载的目录，例如 `runtime/app`。容器必须启动受保护 JAR。
+Windows `.dll` 和 Linux `.so` 运行时可以同时放在 `.secure/rt`，加载器会按
+当前操作系统选择。Linux 容器需要 `libskey_jni.so`，如果涉及 Python/通用运行时，
+还需要 `libskey_rt.so`。
 
 ## 命令行工具
 
@@ -148,6 +157,11 @@ cargo test --manifest-path rust\Cargo.toml
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-release-tools.ps1 -VendorPublicKeySha256 <runtime-public-key-sha256>
 ```
+
+如果 `rust/target/release` 或 `rust/target/x86_64-unknown-linux-gnu/release`
+中已经存在 Linux 运行时产物，打包脚本会同时把 `libskey_ffi.so` 和
+`libskey_jni.so` 复制到 `dist/`。之后从该 `dist/` 构建出的受保护发行包会同时包含
+Linux `.so` 和 Windows DLL。
 
 ## 安全说明
 

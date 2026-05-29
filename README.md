@@ -57,11 +57,22 @@ CLI example:
 .\dist\skey-protect.exe wrap-file --input "<ARTIFACT_FILE>" --out "<PROTECTED_OUTPUT_DIR>"
 ```
 
+Add `--require-windows-linux-runtime` when the release must contain both Windows
+DLLs and Linux SO files. The command fails with a missing-file message if either
+target is incomplete.
+
 Run the protected JAR:
 
 ```powershell
 java -jar "<PROTECTED_OUTPUT_DIR>\<ORIGINAL_FILE_NAME>.jar"
 ```
+
+For Docker deployments, copy the protected launcher, `.secure` folder, and `skey.key`
+into the directory mounted into the backend container, for example `runtime/app`.
+The container must start the protected JAR. Windows `.dll` and Linux `.so` runtime
+files may coexist in `.secure/rt`; the loader chooses the file for the current OS.
+Linux containers require `libskey_jni.so` and, for Python/runtime use,
+`libskey_rt.so`.
 
 ## CLI Usage
 
@@ -151,6 +162,11 @@ Build Windows release tools:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build-release-tools.ps1 -VendorPublicKeySha256 <runtime-public-key-sha256>
 ```
+
+If Linux runtime artifacts are present under `rust/target/release` or
+`rust/target/x86_64-unknown-linux-gnu/release`, the packaging script also copies
+`libskey_ffi.so` and `libskey_jni.so` into `dist/`. Protected releases built from
+that `dist/` folder will include the Linux `.so` files alongside the Windows DLLs.
 
 ## Security Notes
 

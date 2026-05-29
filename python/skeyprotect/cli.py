@@ -38,6 +38,7 @@ from skeyprotect.envelope_builder import (
 from skeyprotect.manifest import canonical_json_bytes
 from skeyprotect.package_writer import HEADER_STRUCT, HEADER_VERSION, MAGIC, read_payload_header
 from skeyprotect.release_builder import build_release
+from skeyprotect.runtime_targets import RuntimeTargetReport, inspect_runtime_targets
 
 app = typer.Typer(no_args_is_help=True)
 activate_app = typer.Typer(no_args_is_help=True)
@@ -121,6 +122,13 @@ def build(
             ),
         ),
     ] = None,
+    require_windows_linux_runtime: Annotated[
+        bool,
+        typer.Option(
+            "--require-windows-linux-runtime",
+            help="Fail the command if the release lacks either Windows DLLs or Linux SO files.",
+        ),
+    ] = False,
 ) -> None:
     """Build a protected release directory."""
     if emit_admin_key_record and admin_wrap_key_file is None:
@@ -164,11 +172,16 @@ def build(
             payload_info=payload_info,
             package_key=package_key,
         )
+        runtime_report = _runtime_target_report_or_fail(
+            product_root,
+            require_windows_linux_runtime,
+        )
         _echo_build_output(
             product_root=product_root,
             payload_info=payload_info,
             admin_record_written=emit_admin_key_record,
             customer_key_path=customer_key_path,
+            runtime_report=runtime_report,
         )
         return
 
@@ -241,11 +254,13 @@ def build(
         )
     except (OSError, ValueError) as exc:
         _fail(f"failed to write customer key: {exc}")
+    runtime_report = _runtime_target_report_or_fail(product_root, require_windows_linux_runtime)
     _echo_build_output(
         product_root=product_root,
         payload_info=payload_info,
         admin_record_written=emit_admin_key_record,
         customer_key_path=customer_key_path,
+        runtime_report=runtime_report,
     )
 
 
@@ -253,6 +268,13 @@ def build(
 def wrap_file(
     input_file: Annotated[Path, typer.Option("--input", help="Single JAR or EXE to protect.")],
     out: Annotated[Path, typer.Option("--out", help="Output folder for the protected shell.")],
+    require_windows_linux_runtime: Annotated[
+        bool,
+        typer.Option(
+            "--require-windows-linux-runtime",
+            help="Fail the command if the release lacks either Windows DLLs or Linux SO files.",
+        ),
+    ] = False,
 ) -> None:
     """Build a same-name shell for a single compiled artifact."""
     if not input_file.is_file():
@@ -281,6 +303,7 @@ def wrap_file(
         )
     except (OSError, ValueError, JSONDecodeError) as exc:
         _fail(f"build failed: {exc}")
+    runtime_report = _runtime_target_report_or_fail(product_root, require_windows_linux_runtime)
     typer.echo(
         json.dumps(
             {
@@ -288,6 +311,7 @@ def wrap_file(
                 "product_id": payload_info["product_id"],
                 "package_id": payload_info["package_id"],
                 "customer_key": str(customer_key_path),
+                "runtime_targets": runtime_report.as_detail(),
             },
             sort_keys=True,
         ),
@@ -463,6 +487,7 @@ def _echo_build_output(
     payload_info: dict[str, Any],
     admin_record_written: bool,
     customer_key_path: Path | None = None,
+    runtime_report: RuntimeTargetReport | None = None,
 ) -> None:
     build_output = {
         "product_root": str(product_root),
@@ -475,7 +500,22 @@ def _echo_build_output(
         build_output["admin_key_record"] = (
             "encrypted admin package key record written; do not ship wrapping key"
         )
+    if runtime_report is not None:
+        build_output["runtime_targets"] = runtime_report.as_detail()
     typer.echo(json.dumps(build_output, sort_keys=True))
+
+
+def _runtime_target_report_or_fail(
+    product_root: Path,
+    require_windows_linux_runtime: bool,
+) -> RuntimeTargetReport:
+    try:
+        report = inspect_runtime_targets(product_root)
+    except (OSError, ValueError, TypeError, JSONDecodeError) as exc:
+        _fail(f"runtime target inspection failed: {exc}")
+    if require_windows_linux_runtime and not report.windows_linux_ready:
+        _fail(f"Windows + Linux runtime is incomplete: {report.summary()}")
+    return report
 
 
 def _read_payload_info(payload_path: Path) -> dict[str, Any]:

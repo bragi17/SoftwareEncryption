@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -44,6 +45,8 @@ class BuildReleaseView(QWidget):
         self.config_path.setObjectName("build_config_path")
         self.release_path = QLineEdit()
         self.release_path.setObjectName("release_path")
+        self.cross_platform_runtime = QCheckBox()
+        self.cross_platform_runtime.setObjectName("build_cross_platform_runtime")
         self.browse_project_file_button = QPushButton()
         self.browse_project_file_button.setObjectName("build_browse_project_file")
         self.browse_project_file_button.clicked.connect(self.browse_project_file)
@@ -84,6 +87,7 @@ class BuildReleaseView(QWidget):
             self.release_label,
             path_input_row(self.release_path, self.browse_release_folder_button),
         )
+        form.addRow("", self.cross_platform_runtime)
 
         action_row = QHBoxLayout()
         action_row.addStretch(1)
@@ -109,6 +113,8 @@ class BuildReleaseView(QWidget):
         self.release_label.setText(tr(language, "build.release_label"))
         self.release_path.setPlaceholderText(tr(language, "build.release_placeholder"))
         self.browse_release_folder_button.setText(tr(language, "path.choose_folder"))
+        self.cross_platform_runtime.setText(tr(language, "build.cross_platform_runtime"))
+        self.cross_platform_runtime.setToolTip(tr(language, "build.cross_platform_hint"))
         self.build_button.setText(tr(language, "build.build"))
         self.verify_button.setText(tr(language, "build.verify"))
 
@@ -177,10 +183,11 @@ class BuildReleaseView(QWidget):
                 project_root=project_root,
                 config_path=config_path,
                 release_path=release_root,
+                require_cross_platform_runtime=self.cross_platform_runtime.isChecked(),
             ),
             self._show_build_result,
             self._show_worker_failure,
-            (self.build_button, self.verify_button),
+            (self.build_button, self.verify_button, self.cross_platform_runtime),
         )
 
     def verify_runtime(self) -> None:

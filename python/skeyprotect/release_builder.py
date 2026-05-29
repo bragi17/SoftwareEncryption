@@ -6,6 +6,7 @@ import os
 import platform
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -31,6 +32,24 @@ JNI_RUNTIME_ROLE = "jni_runtime"
 JAR_LOADER_ROLE = "jar_loader"
 ONLINE_POLICY_ROLE = "online_policy"
 PRODUCT_DIRECTORY_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._ -]{0,127}")
+
+
+@dataclass(frozen=True)
+class RuntimeBinaryVariant:
+    delivery_name: str
+    source_names: tuple[str, ...]
+
+
+RUNTIME_BINARY_VARIANTS = (
+    RuntimeBinaryVariant("skey_rt.dll", ("skey_rt.dll", "skey_ffi.dll")),
+    RuntimeBinaryVariant("libskey_rt.dylib", ("libskey_rt.dylib", "libskey_ffi.dylib")),
+    RuntimeBinaryVariant("libskey_rt.so", ("libskey_rt.so", "libskey_ffi.so")),
+)
+JNI_RUNTIME_BINARY_VARIANTS = (
+    RuntimeBinaryVariant("skey_jni.dll", ("skey_jni.dll",)),
+    RuntimeBinaryVariant("libskey_jni.dylib", ("libskey_jni.dylib",)),
+    RuntimeBinaryVariant("libskey_jni.so", ("libskey_jni.so",)),
+)
 
 
 def build_release(
@@ -201,59 +220,70 @@ def _write_entry(
 
 
 def _copy_available_runtime(source_root: Path, runtime_root: Path) -> list[RuntimeManifestFile]:
-    source_runtime = _find_runtime_binary(source_root)
-    if source_runtime is None:
+    runtime_files = _copy_runtime_variants(
+        source_root,
+        runtime_root,
+        RUNTIME_BINARY_VARIANTS,
+        RUNTIME_ROLE,
+    )
+    if not runtime_files:
         return []
 
-    return _copy_runtime(source_runtime, runtime_root)
+    return runtime_files
 
 
 def _copy_required_runtime(source_root: Path, runtime_root: Path) -> list[RuntimeManifestFile]:
-    source_runtime = _find_runtime_binary(source_root)
-    if source_runtime is None:
+    runtime_files = _copy_runtime_variants(
+        source_root,
+        runtime_root,
+        RUNTIME_BINARY_VARIANTS,
+        RUNTIME_ROLE,
+    )
+    if not _has_current_platform_runtime(runtime_files, RUNTIME_BINARY_VARIANTS):
         raise FileNotFoundError("SKey runtime library was not found; build it before release")
 
-    return _copy_runtime(source_runtime, runtime_root)
+    return runtime_files
 
 
-def _copy_runtime(source_runtime: Path, runtime_root: Path) -> list[RuntimeManifestFile]:
-    delivery_name = _delivery_runtime_name()
-    delivery_path = runtime_root / delivery_name
-    shutil.copy2(source_runtime, delivery_path)
-    return [
-        runtime_file_entry(
-            delivery_path,
-            f".secure/rt/{delivery_name}",
-            RUNTIME_ROLE,
-        ),
-    ]
+def _copy_runtime_variants(
+    source_root: Path,
+    runtime_root: Path,
+    variants: tuple[RuntimeBinaryVariant, ...],
+    role: str,
+) -> list[RuntimeManifestFile]:
+    runtime_files: list[RuntimeManifestFile] = []
+    for variant in variants:
+        source_runtime = _find_runtime_binary_variant(source_root, variant)
+        if source_runtime is None:
+            continue
+        delivery_path = runtime_root / variant.delivery_name
+        shutil.copy2(source_runtime, delivery_path)
+        runtime_files.append(
+            runtime_file_entry(
+                delivery_path,
+                f".secure/rt/{variant.delivery_name}",
+                role,
+            ),
+        )
+    return runtime_files
 
 
 def _copy_required_jni_runtime(source_root: Path, runtime_root: Path) -> list[RuntimeManifestFile]:
-    source_runtime = _find_jni_runtime_binary(source_root)
-    if source_runtime is None:
+    runtime_files = _copy_runtime_variants(
+        source_root,
+        runtime_root,
+        JNI_RUNTIME_BINARY_VARIANTS,
+        JNI_RUNTIME_ROLE,
+    )
+    if not _has_current_platform_runtime(runtime_files, JNI_RUNTIME_BINARY_VARIANTS):
         raise FileNotFoundError("skey-jni runtime library was not found; build it before release")
 
-    delivery_name = _delivery_jni_runtime_name()
-    delivery_path = runtime_root / delivery_name
-    shutil.copy2(source_runtime, delivery_path)
-    return [
-        runtime_file_entry(
-            delivery_path,
-            f".secure/rt/{delivery_name}",
-            JNI_RUNTIME_ROLE,
-        ),
-    ]
+    return runtime_files
 
 
 def _find_runtime_binary(source_root: Path) -> Path | None:
-    for root in _tool_artifact_roots(source_root):
-        for target_dir in _rust_artifact_dirs(root, "release"):
-            for candidate in _runtime_source_candidates():
-                runtime_path = target_dir / candidate
-                if runtime_path.exists():
-                    return runtime_path.resolve(strict=True)
-    return None
+    variant = _current_runtime_variant(RUNTIME_BINARY_VARIANTS)
+    return _find_runtime_binary_variant(source_root, variant)
 
 
 def _find_exe_shell_binary(source_root: Path, *, allow_debug: bool | None = None) -> Path | None:
@@ -285,23 +315,42 @@ def _find_jar_loader_jar(source_root: Path) -> Path | None:
 
 
 def _find_jni_runtime_binary(source_root: Path, *, allow_debug: bool | None = None) -> Path | None:
-    for root in _tool_artifact_roots(source_root):
-        for release_dir in _rust_artifact_dirs(root, "release"):
-            for candidate in _jni_runtime_source_candidates():
-                runtime_path = release_dir / candidate
-                if runtime_path.exists():
-                    return runtime_path.resolve(strict=True)
+    variant = _current_runtime_variant(JNI_RUNTIME_BINARY_VARIANTS)
+    runtime_path = _find_runtime_binary_variant(source_root, variant)
+    if runtime_path is not None:
+        return runtime_path
 
     if allow_debug is None:
         allow_debug = _debug_jni_runtime_allowed()
     if allow_debug:
         for root in _tool_artifact_roots(source_root):
             for debug_dir in _rust_artifact_dirs(root, "debug"):
-                for candidate in _jni_runtime_source_candidates():
+                for candidate in variant.source_names:
                     runtime_path = debug_dir / candidate
                     if runtime_path.exists():
                         return runtime_path.resolve(strict=True)
     return None
+
+
+def _find_runtime_binary_variant(
+    source_root: Path,
+    variant: RuntimeBinaryVariant,
+) -> Path | None:
+    for root in _tool_artifact_roots(source_root):
+        for target_dir in _rust_artifact_dirs(root, "release"):
+            for candidate in (variant.delivery_name, *variant.source_names):
+                runtime_path = target_dir / candidate
+                if runtime_path.exists():
+                    return runtime_path.resolve(strict=True)
+    return None
+
+
+def _has_current_platform_runtime(
+    runtime_files: list[RuntimeManifestFile],
+    variants: tuple[RuntimeBinaryVariant, ...],
+) -> bool:
+    current_path = f".secure/rt/{_current_runtime_variant(variants).delivery_name}"
+    return any(runtime_file.path == current_path for runtime_file in runtime_files)
 
 
 def _tool_artifact_roots(source_root: Path) -> list[Path]:
@@ -332,7 +381,18 @@ def _tool_artifact_roots(source_root: Path) -> list[Path]:
 def _rust_artifact_dirs(root: Path, profile: str) -> tuple[Path, ...]:
     return (
         root / "rust" / "target" / profile,
+        root / "rust" / "target" / "x86_64-pc-windows-msvc" / profile,
+        root / "rust" / "target" / "x86_64-unknown-linux-gnu" / profile,
+        root / "rust" / "target" / "aarch64-unknown-linux-gnu" / profile,
+        root / "rust" / "target" / "x86_64-apple-darwin" / profile,
+        root / "rust" / "target" / "aarch64-apple-darwin" / profile,
         root / "target" / profile,
+        root / "target" / "x86_64-pc-windows-msvc" / profile,
+        root / "target" / "x86_64-unknown-linux-gnu" / profile,
+        root / "target" / "aarch64-unknown-linux-gnu" / profile,
+        root / "target" / "x86_64-apple-darwin" / profile,
+        root / "target" / "aarch64-apple-darwin" / profile,
+        root / "dist",
         root,
     )
 
@@ -365,12 +425,7 @@ def _is_link_or_junction(path: Path) -> bool:
 
 
 def _runtime_source_candidates() -> tuple[str, ...]:
-    system = platform.system()
-    if system == "Windows":
-        return ("skey_rt.dll", "skey_ffi.dll")
-    if system == "Darwin":
-        return ("libskey_rt.dylib", "libskey_ffi.dylib")
-    return ("libskey_rt.so", "libskey_ffi.so")
+    return _current_runtime_variant(RUNTIME_BINARY_VARIANTS).source_names
 
 
 def _exe_shell_source_candidates() -> tuple[str, ...]:
@@ -380,30 +435,26 @@ def _exe_shell_source_candidates() -> tuple[str, ...]:
 
 
 def _jni_runtime_source_candidates() -> tuple[str, ...]:
-    system = platform.system()
-    if system == "Windows":
-        return ("skey_jni.dll",)
-    if system == "Darwin":
-        return ("libskey_jni.dylib",)
-    return ("libskey_jni.so",)
+    return _current_runtime_variant(JNI_RUNTIME_BINARY_VARIANTS).source_names
 
 
 def _delivery_runtime_name() -> str:
-    system = platform.system()
-    if system == "Windows":
-        return "skey_rt.dll"
-    if system == "Darwin":
-        return "libskey_rt.dylib"
-    return "libskey_rt.so"
+    return _current_runtime_variant(RUNTIME_BINARY_VARIANTS).delivery_name
 
 
 def _delivery_jni_runtime_name() -> str:
+    return _current_runtime_variant(JNI_RUNTIME_BINARY_VARIANTS).delivery_name
+
+
+def _current_runtime_variant(
+    variants: tuple[RuntimeBinaryVariant, ...],
+) -> RuntimeBinaryVariant:
     system = platform.system()
     if system == "Windows":
-        return "skey_jni.dll"
+        return variants[0]
     if system == "Darwin":
-        return "libskey_jni.dylib"
-    return "libskey_jni.so"
+        return variants[1]
+    return variants[2]
 
 
 def _write_run_env_scripts(product_root: Path) -> None:
